@@ -16,7 +16,7 @@ const adminSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        default: 'SuperAdmin'
+        default: 'Admin'
     },
     status: {
         type: Boolean,

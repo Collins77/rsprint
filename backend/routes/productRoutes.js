@@ -5,6 +5,7 @@ const productController = require('../controllers/productController');
 router.route('/get-products').get(productController.getAllProducts)
 router.route('/get-products-supplier/:supplierId').get(productController.getProductsBySupplier)
 router.route('/create-product').post(productController.createNewProduct)
+router.route('/admin-create-product').post(productController.adminCreateProduct)
 router.route('/delete-supplier-product/:id').delete(productController.deleteSupplierProduct)
 router.route('/update-product/:id').patch(productController.deleteSupplierProduct)
 // router.route('/login').post(resellersController.loginReseller)

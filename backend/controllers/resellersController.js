@@ -6,8 +6,6 @@ const jwt = require('jsonwebtoken');
 const sendMail = require('../middleware/sendMail');
 const fs = require('fs');
 const path = require('path');
-const sendToken = require('../utils/jwtToken');
-const ErrorHandler = require('../utils/ErrorHandler');
 
 // @desc get all resellers
 // @route GET /resellers
@@ -24,33 +22,6 @@ const getAllResellers = asyncHandler(async (req, res) => {
 // @route POST /resellers
 // @access Private
 const createNewReseller = asyncHandler(async (req, res) => {
-//     const { name, email, shopName, password, address, phoneNumber, roles, status } = req.body;
-
-//     // Confirming data
-//     if(!name || !email || !shopName || !address || !phoneNumber || !password) {
-//         return res.status(400).json({message: 'All fields are required!'})
-//     }
-
-//     // Check for duplicates
-//     const duplicate = await Reseller.findOne({ shopName }).lean().exec()
-//     if(duplicate) {
-//         return res.status(409).json({ message: 'This Shop name has already been taken!' })
-//     }
-
-//     // Hash password
-//     const hashedPwd = await bcrypt.hash(password, 10) // salt rounds
-
-//     const resellerObject = { name, email, shopName, password, address, phoneNumber,status, "password": hashedPwd, roles }
-
-//     // Create and store new user
-//     const reseller = await Reseller.create(resellerObject)
-
-//     if(reseller) {
-//         res.status(201).json({ message: `New reseller ${name} created` })
-//     } else {
-//         res.status(400).json({ message: 'Invalid user data received' })
-//     }
-// })
 try {
     const { firstName, lastName, companyName, country, email, address, phoneNumber, password } = req.body;
 
@@ -97,13 +68,6 @@ try {
         subject: "Application Received",
         html: formattedTemplate,
     });
-
-    // // Send an email to the user
-    // await sendMail({
-    //   email: newReseller.email,
-    //   subject: "Application Received",
-    //   message: `Hi ${newReseller.firstName}, we have received your application to become a member of our platform. Your account is pending approval from our team. Kindly be patient as we process your application. You will be notified upon approval.`,
-    // });
 
     res.status(201).json({
       success: true,
@@ -182,38 +146,51 @@ try {
 
 const loginReseller = asyncHandler(async (req, res) => {
     try {
-        const { email, password } = req.body;
+      const { email, password } = req.body;
+      //validation
+      if (!email || !password) {
+        return res.status(400).send({
+          success: false,
+          message: "Invalid email or password",
+        });
+      }
+      //check user
+      const reseller = await Reseller.findOne({ email }).select("+password");
+      if (!reseller) {
+        return res.status(400).send({
+          success: false,
+          message: "Email is not registerd",
+        });
+      }
 
-        if (!email || !password) {
-            return res.status(400).json({ message: 'All fields are required!' });
-        }
-
-        const reseller = await Reseller.findOne({ email }).select("+password");
-
-        if (!reseller) {
-            return res.status(400).json({ message: 'Reseller does not exist!' });
-        }
-
-        if (reseller.status !== "Approved") {
-            return res.status(401).json({ message: 'Your account is pending approval. You are not allowed to sign in!' });
-        }
-
-        const isPasswordValid = await bcrypt.compare(password, reseller.password)
-
-        if (!isPasswordValid) {
-            return res.status(400).json({ message: 'Invalid details. Try again!' });
-        }
-
-        const token = jwt.sign({
-          reseller: reseller._id, 
-        },
-        process.env.ACCESS_TOKEN_SECRET
-        );
-        res.cookie("token", token, {
-          httpOnly: true, 
-        }).send();
+      if (reseller.status !== "Approved") {
+          return res.status(401).json({ message: 'Your account is pending approval. You are not allowed to sign in!' });
+      }
+      const match = await bcrypt.compare(password, reseller.password)
+      
+      if (!match) {
+        return res.status(400).send({
+          success: false,
+          message: "Invalid Password",
+        });
+      }
+      //token
+      const token = jwt.sign({ reseller: reseller._id }, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "7d",
+      });
+      res.status(200).send({
+        success: true,
+        message: "login successfully",
+        reseller,
+        token,
+      });
+      
     } catch (error) {
-        return res.status(500).json(error.message);
+      res.status(500).send({
+        success: false,
+        message: "Error in login",
+        error,
+      });
     }
 });
 
@@ -358,6 +335,76 @@ const deleteReseller = asyncHandler(async (req, res) => {
     res.json(reply)
 })
 
+const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  try {
+    const oldUser = await Reseller.findOne({email});
+    if(!oldUser) {
+      return res.status(400).json({ message: 'Reseller not found'});
+    }
+    //token
+    const token = jwt.sign({ email: oldUser.email, id: oldUser._id }, process.env.ACCESS_TOKEN_SECRET, {
+      expiresIn: "20m",
+    });
+    const link = `http://localhost:3500/resellers/reset-password/${oldUser._id}/${token}`;
+    const emailTemplatePath = path.join(__dirname, '..', 'views', 'forgotPassword.html');
+    const emailTemplate = fs.readFileSync(emailTemplatePath, 'utf8');
+
+    // Replace placeholders with actual values
+    const formattedTemplate = emailTemplate
+        .replace('{{firstName}}', oldUser.firstName)
+        .replace('{{link}}', link)
+
+    // Send an email with the formatted template
+    await sendMail({
+        email: oldUser.email,
+        subject: "Password Reset",
+        html: formattedTemplate,
+    });
+  } catch (error) {
+    
+  }
+})
+
+const resetPassword = asyncHandler(async (req, res) => {
+  const {id, token} = req.params;
+  const oldReseller = await Reseller.findOne({_id: id})
+  if(!oldReseller) {
+    return res.status(400).json({ message: "Reseller does not exist" });
+  }
+  try {
+    const verify = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+    res.render('forgot', { email: verify.email, status:"not verified" })
+  } catch (error) {
+    res.send("Not verified")
+  }
+
+})
+const resetPasswordComplete = asyncHandler(async (req, res) => {
+  const {id, token} = req.params;
+  const {password} = req.body;
+
+  const oldReseller = await Reseller.findOne({_id: id})
+  if(!oldReseller) {
+    return res.status(400).json({ message: "Reseller does not exist" });
+  }
+  try {
+    const verify = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+    const encryptedPassword = await bcrypt.hash(password, 10);
+    await Reseller.updateOne({
+      id:id
+    }, {
+      $set: {
+        password: encryptedPassword,
+      },
+    });
+    res.render("forgot", {email: verify.email, status: "verified"})
+  } catch (error) {
+    res.json({status: "Something went wrong"})
+  }
+
+})
+
 module.exports = {
     getAllResellers, 
     createNewReseller, 
@@ -367,5 +414,8 @@ module.exports = {
     deleteReseller,
     logOutReseller,
     approveReseller,
-    loggedIn
+    loggedIn,
+    forgotPassword,
+    resetPassword,
+    resetPasswordComplete
 }

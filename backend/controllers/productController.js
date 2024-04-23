@@ -19,14 +19,13 @@ const createNewProduct = asyncHandler(async (req, res) => {
     try {
         const supplierId = req.body.supplierId; // Assuming the supplier ID is provided in the request body
         const supplier = await Supplier.findById(supplierId);
-        console.log(supplier)
         
         if (!supplier) {
           return res.status(400).json({ message: 'Supplier ID is invalid!' });
         } else {
-          const {sku,name,category,price,brand,description,status,isFeatured} = req.body
+          const {sku,name,category,price,brand,description, warranty, status,isFeatured} = req.body
 
-          if(!sku || !name || !category || !price || !brand || !description) {
+          if(!sku || !name || !category || !price || !warranty || !brand || !description) {
             return res.status(400).json({message: 'All fields are required!'})
             }
 
@@ -37,6 +36,7 @@ const createNewProduct = asyncHandler(async (req, res) => {
             category,
             price,
             brand,
+            warranty,
             description,
             status: "available",
             isFeatured: true
@@ -50,25 +50,43 @@ const createNewProduct = asyncHandler(async (req, res) => {
       } catch (error) {
         return res.status(400).json(error.message);
       }
-    // try {
-    //     const supplierId = req.body.supplierId;
-    //     const supplier = await Supplier.findById(supplierId);
-    //     if (!supplier) {
-    //       return next(new ErrorHandler("Shop Id is invalid!", 400));
-    //     } else {
-    //       const productData = req.body;
-    //       productData.supplier = supplier;
+})
+const adminCreateProduct = asyncHandler(async (req, res) => {
+    try {
+        const supplierId = req.body.supplierId; // Assuming the supplier ID is provided in the request body
+        const supplier = await Supplier.findById(supplierId);
+        
+        if (!supplier) {
+          return res.status(400).json({ message: 'Supplier ID is invalid!' });
+        } else {
+          const {sku,name,category,price,brand,description, warranty, status,isFeatured} = req.body
+
+          if(!sku || !name || !category || !price || !warranty || !brand || !description) {
+            return res.status(400).json({message: 'All fields are required!'})
+            }
+
+          const product = await Product.create({
+            supplier: supplierId,
+            sku,
+            name,
+            category,
+            price,
+            brand,
+            warranty,
+            description,
+            status: "available",
+            isFeatured: true
+          });
   
-    //       const product = await Product.create(productData);
-  
-    //       res.status(201).json({
-    //         success: true,
-    //         product,
-    //       });
-    //     }
-    //   } catch (error) {
-    //     return next(new ErrorHandler(error, 400));
-    //   }
+          res.status(201).json({
+            success: true,
+            product,
+          });
+        }
+      } catch (error) {
+        return res.status(400).json(error.message);
+      }
+    
 })
 
 const deleteSupplierProduct = asyncHandler(async (req, res) => {
@@ -138,6 +156,7 @@ module.exports = {
     getProductsBySupplier,
     deleteSupplierProduct,
     updateProduct,
+    adminCreateProduct,
     // updateReseller,
     // loginReseller,
     // getReseller,

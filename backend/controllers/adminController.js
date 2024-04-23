@@ -1,6 +1,7 @@
 const Admin = require('../models/Admin')
-// const Note = require('../models/Note')
 const bcrypt = require('bcrypt')
+const asyncHandler = require('express-async-handler');
+const jwt = require('jsonwebtoken');
 
 // @desc Get all users
 // @route GET /users
@@ -51,6 +52,56 @@ const createNewAdmin = async (req, res) => {
         res.status(400).json({ message: 'Invalid admin data received' })
     }
 }
+
+const loginAdmin = asyncHandler(async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      //validation
+      if (!email || !password) {
+        return res.status(400).send({
+          success: false,
+          message: "Invalid email or password",
+        });
+      }
+      //check user
+      const admin = await Admin.findOne({ email }).select("+password");
+      if (!admin) {
+        return res.status(400).send({
+          success: false,
+          message: "Admin not found",
+        });
+      }
+
+    //   if (admin.status !== "Approved") {
+    //       return res.status(401).json({ message: 'Your account is pending approval. You are not allowed to sign in!' });
+    //   }
+      const match = await bcrypt.compare(password, admin.password)
+      
+      if (!match) {
+        return res.status(400).send({
+          success: false,
+          message: "Invalid Password",
+        });
+      }
+      //token
+      const token = jwt.sign({ admin: admin._id }, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "7d",
+      });
+      res.status(200).send({
+        success: true,
+        message: "login successfully",
+        admin,
+        token,
+      });
+      
+    } catch (error) {
+      res.status(500).send({
+        success: false,
+        message: "Error in login",
+        error,
+      });
+    }
+});
 
 // @desc Update a user
 // @route PATCH /users
@@ -122,5 +173,6 @@ module.exports = {
     getAllAdmins,
     createNewAdmin,
     updateAdmin,
-    deleteAdmin
+    deleteAdmin,
+    loginAdmin
 }
