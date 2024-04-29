@@ -30,27 +30,40 @@ exports.requiresSupplierSignIn = async (req, res, next) => {
   }
 }
 
-//admin acceess
-exports.isAdmin = async (req, res, next) => {
+exports.requiresAdminSignIn = async (req, res, next) => {
   try {
-    const admin = await Admin.findById(req.admin._id);
-    if (admin.status !== true) {
-      return res.status(401).send({
-        success: false,
-        message: "UnAuthorized Access",
-      });
-    } else {
-      next();
-    }
+    const decode =  jwt.verify(
+      req.headers.authorization,
+      process.env.ACCESS_TOKEN_SECRET
+    );
+    req.admin = decode;
+    next()
   } catch (error) {
     console.log(error);
-    res.status(401).send({
-      success: false,
-      error,
-      message: "Error in admin middelware",
-    });
   }
-};
+}
+
+//admin acceess
+// exports.isAdmin = async (req, res, next) => {
+//   try {
+//     const admin = await Admin.findById(req.admin._id);
+//     if (admin.status !== true) {
+//       return res.status(401).send({
+//         success: false,
+//         message: "UnAuthorized Access",
+//       });
+//     } else {
+//       next();
+//     }
+//   } catch (error) {
+//     console.log(error);
+//     res.status(401).send({
+//       success: false,
+//       error,
+//       message: "Error in admin middelware",
+//     });
+//   }
+// };
 exports.isSupplier = async (req, res, next) => {
   try {
     const decode = jwt.verify(
@@ -58,6 +71,20 @@ exports.isSupplier = async (req, res, next) => {
       process.env.ACCESS_TOKEN_SECRET
     );
     req.supplier = decode;
+    next();
+  } catch (error) {
+    console.log(error);
+  }
+
+};
+
+exports.isAdmin = async (req, res, next) => {
+  try {
+    const decode = jwt.verify(
+      req.headers.authorization,
+      process.env.ACCESS_TOKEN_SECRET
+    );
+    req.admin = decode;
     next();
   } catch (error) {
     console.log(error);

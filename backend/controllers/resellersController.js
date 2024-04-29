@@ -79,6 +79,66 @@ try {
   }
 });
 
+const adminCreateReseller = asyncHandler(async (req, res) => {
+
+  try {
+      const { firstName, lastName, companyName, email, address, country, phoneNumber, password } = req.body;
+  
+      if(!firstName || !lastName || !email || !companyName || !address || !country || !phoneNumber || !password) {
+          return res.status(400).json({message: 'All fields are required!'})
+      }
+  
+      // Check if the email already exists
+      const Email = await Reseller.findOne({ email });
+      if (Email) {
+          return res.status(409).json({ message: 'Reseller already exists!' })
+      }
+  
+      // const hashedPwd = await bcrypt.hash(password, 10)
+  
+      // Create a new user with status 'Not Approved'
+      const newReseller = new Reseller({
+          firstName, 
+          lastName, 
+          companyName, 
+          email, 
+          address,  
+          phoneNumber, 
+          password,
+          country,
+          status: "Approved",
+          roles: "Reseller"
+      });
+  
+      // Save the user to the database
+      await newReseller.save();
+  
+      const emailTemplatePath = path.join(__dirname, '..', 'views', 'accountSetup.html');
+      const emailTemplate = fs.readFileSync(emailTemplatePath, 'utf8');
+  
+      // Replace placeholders with actual values
+      const formattedTemplate = emailTemplate
+          .replace('{{firstName}}', newReseller.firstName)
+          .replace('{{password}}', newReseller.password)
+          .replace('{{email}}', newReseller.email)
+  
+      // Send an email with the formatted template
+      await sendMail({
+          email: newReseller.email,
+          subject: "Application Received",
+          html: formattedTemplate,
+      });
+  
+      res.status(201).json({
+        success: true,
+        message: `Please check your personal email (${newReseller.email}) for further instructions.`,
+      });
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({ message: 'An error occurred!'})
+    }
+  });
+
 // const loginReseller = asyncHandler(async (req, res) => {
 //     try {
 //         const { email, password } = req.body;
@@ -212,6 +272,29 @@ const getReseller = asyncHandler(async (req, res) => {
       }
 })
 
+const getResellerById = asyncHandler(async (req, res) => {
+  try {
+      const reseller = await Reseller.findById(req.params.id);
+      if(!reseller) {
+          return res.status(404).json({ message: 'Reseller not found!' });
+      }
+    res.status(201).json({
+      success: true,
+      reseller,
+    });
+    } catch (error) {
+      return res.status(500).json(error.message);
+    }
+})
+
+const getNotApprovedResellers = asyncHandler(async (req, res) => {
+  const resellers = await Reseller.find({ status: "Not approved" }).lean();
+  if (!resellers?.length) {
+      return res.status(400).json({ message: 'No resellers with status "Not approved" found' });
+  }
+  res.json(resellers);
+});
+
 const loggedIn = asyncHandler(async (req, res) => {
   try {
     const token = req.cookies.token;
@@ -245,39 +328,27 @@ const logOutReseller = asyncHandler(async (req, res) => {
 
 
 const updateReseller = asyncHandler(async (req, res) => {
-    const { id, username, roles, active, password } = req.body;
+    const { id } = req.params;
+    updatedResellerData = req.body;
+    try {
+        // Validate input (you can use a validation library like Joi here)
 
-    // confirm data
-    if(!id || !username || !Array.isArray(roles) || !roles.length || typeof active !== 'boolean') {
-        return res.status(400).json({ message: 'All fields are required' })
+        // Update the reseller in the database
+        const updatedReseller = await Reseller.findByIdAndUpdate(id, updatedResellerData, { new: true });
+
+        if (!updatedReseller) {
+            return res.status(404).json({ error: 'Reseller not found' });
+        }
+
+        // Send a success response
+        res.status(200).json({ message: 'Reseller updated successfully', reseller: updatedReseller });
+    } catch (error) {
+        console.error('Error updating reseller:', error);
+        // Send an error response
+        res.status(500).json({ error: 'Internal server error' });
     }
 
-    const reseller = await Reseller.findById(id).exec()
-
-    if(!reseller) {
-        return res.status(400).json({ message: 'Reseller not found' })
-    }
-
-    // check for duplicate
-    const duplicate = await Reseller.findOne({ username }).lean().exec()
-
-    // Allow updates to the original user
-    if(duplicate && duplicate?._id.toString() !== id) {
-        return res.status(409).json({ message: 'Duplicate username' })
-    }
-
-    reseller.username = username
-    reseller.roles = roles
-    reseller.active = active
-
-    if(password) {
-        // hash password
-        reseller.password = await bcrypt.hash(password, 10);
-    }
-
-    const updatedReseller = await reseller.save();
-
-    res.json({ message: `${updatedReseller.username} updated` })
+    // res.json({ message: `${updatedReseller.firstName} updated` })
 })
 
 const approveReseller = asyncHandler(async (req, res) => {
@@ -290,22 +361,96 @@ const approveReseller = asyncHandler(async (req, res) => {
   
         reseller.status = "Approved";
         await reseller.save();
-  
-        // Send account approval email
-        const approvalEmailOptions = {
-          email: reseller.email,
-          subject: "Account Approval Notification",
-          html: `<p>Dear ${reseller.firstName},</p>
-                 <p>We are pleased to inform you that your account has been approved! You can now log in to your account and start using our platform.</p>
-                 <p>Thank you for joining us.</p>
-                 <p>Best regards,<br>Your Platform Team</p>`,
-        };
-  
-        await sendMail(approvalEmailOptions);
+
+        const emailTemplatePath = path.join(__dirname, '..', 'views', 'emailTemplate.html');
+        const emailTemplate = fs.readFileSync(emailTemplatePath, 'utf8');
+
+        // Replace placeholders with actual values
+        const formattedTemplate = emailTemplate
+            .replace('{{firstName}}', reseller.firstName)
+            .replace('{{message}}', `Hi ${reseller.firstName}, we are pleased to inform you that your account has been approved! You can now log in to your account at https://resellerprint.com/login and start your journey with us.`);
+
+        // Send an email with the formatted template
+        await sendMail({
+            email: reseller.email,
+            subject: "Account Approval Notification",
+            html: formattedTemplate,
+        });
   
         res.status(200).json({
           success: true,
           message: "Reseller approved successfully!",
+          reseller,
+        });
+      } catch (error) {
+        return res.status(500).json(error.message);
+      }
+})
+
+const holdReseller = asyncHandler(async (req, res) => {
+  try {
+      const reseller = await Reseller.findById(req.params.id);
+
+      if (!reseller) {
+        return res.status(404).json({ message: "Reseller not found" });
+      }
+
+      reseller.status = "On Hold";
+      await reseller.save();
+
+      const emailTemplatePath = path.join(__dirname, '..', 'views', 'emailTemplate.html');
+      const emailTemplate = fs.readFileSync(emailTemplatePath, 'utf8');
+
+      // Replace placeholders with actual values
+      const formattedTemplate = emailTemplate
+          .replace('{{firstName}}', reseller.firstName)
+          .replace('{{message}}', `Hi ${reseller.firstName}, we regret to inform you that your account has been put on hold! Kindly contact our team for further clarification.`);
+
+      // Send an email with the formatted template
+      await sendMail({
+          email: reseller.email,
+          subject: "Account Suspension Notification",
+          html: formattedTemplate,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Reseller suspended successfully!",
+        reseller: reseller,
+      });
+    } catch (error) {
+      return res.status(500).json(error.message);
+    }
+})
+const rejectReseller = asyncHandler(async (req, res) => {
+    try {
+        const reseller = await Reseller.findById(req.params.id);
+  
+        if (!reseller) {
+          return res.status(404).json({ message: "Reseller not found" });
+        }
+  
+        reseller.status = "Rejected";
+        await reseller.save();
+
+        const emailTemplatePath = path.join(__dirname, '..', 'views', 'emailTemplate.html');
+        const emailTemplate = fs.readFileSync(emailTemplatePath, 'utf8');
+
+        // Replace placeholders with actual values
+        const formattedTemplate = emailTemplate
+            .replace('{{firstName}}', reseller.firstName)
+            .replace('{{message}}', `Hi ${reseller.firstName}, we regret to inform you that your application has been rejected! Kindly reach out to our team for further details.`);
+
+        // Send an email with the formatted template
+        await sendMail({
+            email: reseller.email,
+            subject: "Application Rejected",
+            html: formattedTemplate,
+        });
+  
+        res.status(200).json({
+          success: true,
+          message: "Reseller rejection successful!",
           reseller,
         });
       } catch (error) {
@@ -346,7 +491,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
     const token = jwt.sign({ email: oldUser.email, id: oldUser._id }, process.env.ACCESS_TOKEN_SECRET, {
       expiresIn: "20m",
     });
-    const link = `http://localhost:3500/resellers/reset-password/${oldUser._id}/${token}`;
+    const link = `https://resprint.api.resellers/resellers/reset-password/${oldUser._id}/${token}`;
     const emailTemplatePath = path.join(__dirname, '..', 'views', 'forgotPassword.html');
     const emailTemplate = fs.readFileSync(emailTemplatePath, 'utf8');
 
@@ -417,5 +562,10 @@ module.exports = {
     loggedIn,
     forgotPassword,
     resetPassword,
-    resetPasswordComplete
+    resetPasswordComplete,
+    getNotApprovedResellers,
+    rejectReseller,
+    getResellerById,
+    holdReseller,
+    adminCreateReseller
 }

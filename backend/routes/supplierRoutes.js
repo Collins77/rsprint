@@ -7,9 +7,16 @@ const { requireSignIn, isSupplier, requiresSupplierSignIn } = require('../middle
 router.get("/get-suppliers", supplierController.getAllSuppliers);
 router.route('/get-supplier/:id').get(supplierController.getSupplierById)
 router.route('/register-supplier').post(supplierController.registerNewSupplier)
-router.route('/admin-create-supplier').post(supplierController.createNewSupplier)
+router.route('/admin-create-supplier').post(supplierController.adminCreateSupplier)
 router.route('/login').post(supplierController.loginSupplier)
-router.route('/approve-supplier/:id').patch(supplierController.approveSupplier)
+router.route('/delete-supplier/:id').post(supplierController.deleteSupplier)
+router.get('/unapproved-suppliers', supplierController.getNotApprovedSuppliers);
+router.get('/approved-suppliers', supplierController.getApprovedSuppliers);
+router.patch('/approve-supplier/:id', supplierController.approveSupplier);
+router.patch('/hold-supplier/:id', supplierController.holdSupplier);
+router.patch('/update-exchange/:id', supplierController.updateExchangeRate);
+router.patch('/update-supplier/:id', supplierController.updateSupplier);
+router.patch('/reject-supplier/:id', supplierController.rejectSupplier);
 router.get("/supplier-auth", requiresSupplierSignIn, (req, res) => {
     res.status(200).send({ ok: true });
   });

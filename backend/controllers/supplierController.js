@@ -274,50 +274,23 @@ const getSupplierById = asyncHandler(async (req, res) => {
 
 
 const updateSupplier = asyncHandler(async (req, res) => {
-    const {id, firstName, lastName, companyName, companyEmail, companyType, categories, country, email, address, dollarExchangeRate, phoneNumber, password, roles, status, active } = req.body;
+  const { id } = req.params;
+  updatedSupplierData = req.body;
 
-    // confirm data
-    if(!id || !firstName || !lastName || !companyName || !companyEmail || !companyType || !categories.length || !country || !email || !address || !dollarExchangeRate || !phoneNumber) {
-        return res.status(400).json({ message: 'All fields are required' })
-    }
+  try {
 
-    const supplier = await Supplier.findById(id).exec()
+      // Update the reseller in the database
+      const updatedSupplier = await Supplier.findByIdAndUpdate(id, updatedSupplierData, { new: true });
 
-    if(!supplier) {
-        return res.status(400).json({ message: 'Supplier not found' })
-    }
+      if (!updatedSupplier) {
+          return res.status(404).json({ error: 'Supplier not found' });
+      }
 
-    // check for duplicate
-    const duplicate = await Supplier.findOne({ companyName }).lean().exec()
-
-    // Allow updates to the original user
-    if(duplicate && duplicate?._id.toString() !== id) {
-        return res.status(409).json({ message: 'Duplicate Company Name' })
-    }
-
-    supplier.firstName = firstName
-    supplier.lastName = lastName
-    supplier.companyName = companyName
-    supplier.companyEmail = companyEmail
-    supplier.companyType = companyType
-    supplier.categories = categories
-    supplier.country = country
-    supplier.email = email
-    supplier.address = address
-    supplier.dollarExchangeRate = dollarExchangeRate
-    supplier.phoneNumber = phoneNumber
-    supplier.active = active
-    supplier.status = status
-    supplier.roles = roles
-
-    if(password) {
-        // hash password
-        supplier.password = await bcrypt.hash(password, 10);
-    }
-
-    const updatedSupplier = await supplier.save();
-
-    res.json({ message: `${updatedSupplier.username} updated` })
+      // Send a success response
+      res.status(200).json({ message: 'Supplier updated successfully', reseller: updatedSupplier });
+  } catch (error) {
+      res.status(500).json({ error: 'Internal server error' });
+  }
 })
 
 
@@ -340,31 +313,152 @@ const deleteSupplier = asyncHandler(async (req, res) => {
     res.json(reply)
 })
 
-const approveSupplier = asyncHandler(async (req, res) => {
-    try {
-        const supplier = await Supplier.findById(req.params.id);
-        if (!supplier) {
-          return res.status(404).json({ message: "Supplier not found" });
-        }
-  
-        const approvedSupplier = await Supplier.findByIdAndUpdate(req.params.id, { status: "Approved" }, { new: true });;
-              // Send account approval email
-              const approvalEmailOptions = {
-                  email: approvedSupplier.email,
-                  subject: "Account Approval Notification",
-                  html: `<p>Dear ${approvedSupplier.name},</p>
-                         <p>We are pleased to inform you that your seller account has been approved! You can now log in to your account and start using our platform.</p>
-                         <p>Thank you for joining us.</p>
-                         <p>Best regards,<br>Reseller Sprint Team</p>`
-              };
-  
-              await sendMail(approvalEmailOptions);
-  
-        res.status(200).json({ message: "Supplier approved", seller: approvedSupplier });
-      } catch (error) {
-        // console.error(error);
-        res.status(500).json(error.message);
+const updateExchangeRate = asyncHandler (async(req, res) => {
+  const { dollarExchangeRate } = req.body;
+  const { id } = req.params;
+
+  try {
+      // Find the admin by ID
+      const supplier = await Supplier.findById(id);
+
+      // Check if admin exists
+      if (!supplier) {
+          return res.status(404).json({ message: 'Supplier not found' });
       }
+      
+      // Update user's password with the new hashed password
+      supplier.dollarExchangeRate = dollarExchangeRate;
+      await supplier.save();
+
+      // Password changed successfully
+      return res.status(200).json({ message: 'Exchange Rate updated successfully', dollarExchangeRate: dollarExchangeRate });
+  } catch (error) {
+      console.error('Error changing password:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+const getApprovedSuppliers = asyncHandler(async (req, res) => {
+  const suppliers = await Supplier.find({ status: "Approved" }).lean();
+  if (!suppliers?.length) {
+      return res.status(400).json({ message: 'No suppliers with status "Approved" found' });
+  }
+  res.json(suppliers);
+});
+const getNotApprovedSuppliers = asyncHandler(async (req, res) => {
+  const suppliers = await Supplier.find({ status: "Not approved" }).lean();
+  if (!suppliers?.length) {
+      return res.status(400).json({ message: 'No suppliers with status "Not approved" found' });
+  }
+  res.json(suppliers);
+});
+
+const approveSupplier = asyncHandler(async (req, res) => {
+  try {
+      const supplier = await Supplier.findById(req.params.id);
+
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+
+      supplier.status = "Approved";
+      await supplier.save();
+
+      const emailTemplatePath = path.join(__dirname, '..', 'views', 'emailTemplate.html');
+      const emailTemplate = fs.readFileSync(emailTemplatePath, 'utf8');
+
+      // Replace placeholders with actual values
+      const formattedTemplate = emailTemplate
+          .replace('{{firstName}}', supplier.firstName)
+          .replace('{{message}}', `Hi ${supplier.firstName}, we are pleased to inform you that your account has been approved! You can now log in to your account https://resellerprint.com/supplier-login and start your journey with us.`);
+
+      // Send an email with the formatted template
+      await sendMail({
+          email: supplier.email,
+          subject: "Account Approval Notification",
+          html: formattedTemplate,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Supplier approved successfully!",
+        supplier: supplier,
+      });
+    } catch (error) {
+      return res.status(500).json(error.message);
+    }
+})
+
+const holdSupplier = asyncHandler(async (req, res) => {
+  try {
+      const supplier = await Supplier.findById(req.params.id);
+
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+
+      supplier.status = "On Hold";
+      await supplier.save();
+
+      const emailTemplatePath = path.join(__dirname, '..', 'views', 'emailTemplate.html');
+      const emailTemplate = fs.readFileSync(emailTemplatePath, 'utf8');
+
+      // Replace placeholders with actual values
+      const formattedTemplate = emailTemplate
+          .replace('{{firstName}}', supplier.firstName)
+          .replace('{{message}}', `Hi ${supplier.firstName}, we regret to inform you that your account has been put on hold! Kindly contact our team for further clarification.`);
+
+      // Send an email with the formatted template
+      await sendMail({
+          email: supplier.email,
+          subject: "Account Suspension Notification",
+          html: formattedTemplate,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Supplier suspended successfully!",
+        supplier: supplier,
+      });
+    } catch (error) {
+      return res.status(500).json(error.message);
+    }
+})
+
+const rejectSupplier = asyncHandler(async (req, res) => {
+  try {
+      const supplier = await Supplier.findById(req.params.id);
+
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+
+      supplier.status = "Rejected";
+      await supplier.save();
+
+      const emailTemplatePath = path.join(__dirname, '..', 'views', 'emailTemplate.html');
+      const emailTemplate = fs.readFileSync(emailTemplatePath, 'utf8');
+
+      // Replace placeholders with actual values
+      const formattedTemplate = emailTemplate
+          .replace('{{firstName}}', supplier.firstName)
+          .replace('{{message}}', `Hi ${supplier.firstName}, we regret to inform you that your application has been rejected! Kindly reach out to our team for further details.`);
+
+      // Send an email with the formatted template
+      await sendMail({
+          email: supplier.email,
+          subject: "Application Rejected",
+          html: formattedTemplate,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Supplier rejection successful!",
+        supplier,
+      });
+    } catch (error) {
+      return res.status(500).json(error.message);
+    }
 })
 
 const forgotPassword = asyncHandler(async (req, res) => {
@@ -378,7 +472,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
       const token = jwt.sign({ email: oldSupplier.email, id: oldSupplier._id }, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "20m",
       });
-      const link = `http://localhost:3500/suppliers/reset-password/${oldSupplier._id}/${token}`;
+      const link = `https://resprint.api.resellers/suppliers/reset-password/${oldSupplier._id}/${token}`;
       const emailTemplatePath = path.join(__dirname, '..', 'views', 'forgotPassword.html');
       const emailTemplate = fs.readFileSync(emailTemplatePath, 'utf8');
   
@@ -446,7 +540,13 @@ module.exports = {
     getSupplierById,
     deleteSupplier,
     approveSupplier, 
+    rejectSupplier, 
     forgotPassword, 
     resetPassword,
-    resetPasswordComplete
+    resetPasswordComplete,
+    getNotApprovedSuppliers,
+    getApprovedSuppliers,
+    holdSupplier, 
+    updateExchangeRate,
+    adminCreateSupplier
 }

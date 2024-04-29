@@ -87,6 +87,8 @@ const loginAdmin = asyncHandler(async (req, res) => {
       const token = jwt.sign({ admin: admin._id }, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "7d",
       });
+      // Generate refresh token
+      // const refreshToken = jwt.sign({ admin: admin._id }, process.env.REFRESH_TOKEN_SECRET);
       res.status(200).send({
         success: true,
         message: "login successfully",
@@ -106,43 +108,85 @@ const loginAdmin = asyncHandler(async (req, res) => {
 // @desc Update a user
 // @route PATCH /users
 // @access Private
-const updateAdmin = async (req, res) => {
-    const { id, username, role, active, password, email } = req.body
+const updateAdmin = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  updatedAdminData = req.body;
+  try {
+      // Validate input (you can use a validation library like Joi here)
 
-    // Confirm data 
-    if (!id || !username || !email) {
-        return res.status(400).json({ message: 'All fields except password are required' })
+      // Update the reseller in the database
+      const updatedAdmin = await Admin.findByIdAndUpdate(id, updatedAdminData, { new: true });
+
+      if (!updatedAdmin) {
+          return res.status(404).json({ error: 'Admin not found' });
+      }
+
+      // Send a success response
+      res.status(200).json({ message: 'Admin updated successfully', admin: updatedAdmin });
+  } catch (error) {
+      // Send an error response
+      res.status(500).json({ error: 'Internal server error' });
+  }
+
+  // res.json({ message: `${updatedReseller.firstName} updated` })
+})
+
+const changePassword = asyncHandler (async(req, res) => {
+  const { oldPassword, newPassword, confirmPassword } = req.body;
+  const { id } = req.params;
+
+  try {
+      // Find the admin by ID
+      const admin = await Admin.findById(id);
+
+      // Check if admin exists
+      if (!admin) {
+          return res.status(404).json({ message: 'Admin not found' });
+      }
+
+      // / Compare old password with the hashed password in the database
+      const isMatch = await bcrypt.compare(oldPassword, admin.password);
+
+      if (!isMatch) {
+          return res.status(400).json({ message: 'Invalid old password' });
+      }
+
+      // Validate new password
+      if (newPassword !== confirmPassword) {
+        return res.status(400).json({ message: 'New password and confirm password do not match' });
+      }
+
+      // Hash the new password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+      
+      // Update user's password with the new hashed password
+      admin.password = hashedPassword;
+      await admin.save();
+
+      // Password changed successfully
+      return res.status(200).json({ message: 'Password updated successfully' });
+  } catch (error) {
+      console.error('Error changing password:', error);
+      return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+const getAdminById = asyncHandler(async (req, res) => {
+  try {
+      const admin = await Admin.findById(req.params.id);
+      if(!admin) {
+          return res.status(404).json({ message: 'Admin not found!' });
+      }
+    res.status(201).json({
+      success: true,
+      admin,
+    });
+    } catch (error) {
+      return res.status(500).json(error.message);
     }
-
-    // Does the user exist to update?
-    const admin = await Admin.findById(id).exec()
-
-    if (!admin) {
-        return res.status(400).json({ message: 'Admin not found' })
-    }
-
-    // Check for duplicate 
-    const duplicate = await Admin.findOne({ username }).collation({ locale: 'en', strength: 2 }).lean().exec()
-
-    // Allow updates to the original user 
-    if (duplicate && duplicate?._id.toString() !== id) {
-        return res.status(409).json({ message: 'Duplicate username' })
-    }
-
-    admin.username = username
-    admin.email = email
-    admin.role = role
-    admin.active = active
-
-    if (password) {
-        // Hash password 
-        admin.password = await bcrypt.hash(password, 10) // salt rounds 
-    }
-
-    const updatedAdmin = await admin.save()
-
-    res.json({ message: `${updatedAdmin.username} updated` })
-}
+})
 
 // @desc Delete a user
 // @route DELETE /users
@@ -174,5 +218,7 @@ module.exports = {
     createNewAdmin,
     updateAdmin,
     deleteAdmin,
-    loginAdmin
+    loginAdmin,
+    getAdminById, 
+    changePassword
 }
