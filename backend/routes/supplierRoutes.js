@@ -9,18 +9,20 @@ router.route('/get-supplier/:id').get(supplierController.getSupplierById)
 router.route('/register-supplier').post(supplierController.registerNewSupplier)
 router.route('/admin-create-supplier').post(supplierController.adminCreateSupplier)
 router.route('/login').post(supplierController.loginSupplier)
-router.route('/delete-supplier/:id').post(supplierController.deleteSupplier)
+// router.route('/delete-supplier/:id').delete(supplierController.deleteSupplier)
+router.delete('/delete-supplier/:id', supplierController.deleteSupplier);
 router.get('/unapproved-suppliers', supplierController.getNotApprovedSuppliers);
 router.get('/approved-suppliers', supplierController.getApprovedSuppliers);
 router.patch('/approve-supplier/:id', supplierController.approveSupplier);
 router.patch('/hold-supplier/:id', supplierController.holdSupplier);
 router.patch('/update-exchange/:id', supplierController.updateExchangeRate);
-router.patch('/update-supplier/:id', supplierController.updateSupplier);
+router.put('/update-supplier/:id', supplierController.updateSupplier);
 router.patch('/reject-supplier/:id', supplierController.rejectSupplier);
 router.get("/supplier-auth", requiresSupplierSignIn, (req, res) => {
     res.status(200).send({ ok: true });
   });
 router.post('/forgot-password', supplierController.forgotPassword);
+router.put('/change-password/:id', supplierController.changePassword);
 router.get('/reset-password/:id/:token', supplierController.resetPassword);
 router.post('/reset-password/:id/:token', supplierController.resetPasswordComplete);
 // router.get("/test", isSupplier, supplierController.testController);

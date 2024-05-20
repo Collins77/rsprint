@@ -72,9 +72,9 @@ const loginAdmin = asyncHandler(async (req, res) => {
         });
       }
 
-    //   if (admin.status !== "Approved") {
-    //       return res.status(401).json({ message: 'Your account is pending approval. You are not allowed to sign in!' });
-    //   }
+      if (admin.status !== true) {
+          return res.status(401).json({ message: 'Access Denied' });
+      }
       const match = await bcrypt.compare(password, admin.password)
       
       if (!match) {
@@ -188,6 +188,48 @@ const getAdminById = asyncHandler(async (req, res) => {
     }
 })
 
+const deactivateAdmin = asyncHandler(async (req, res) => {
+  try {
+      const admin = await Admin.findById(req.params.id);
+
+      if (!Admin) {
+        return res.status(404).json({ message: "Admin not found" });
+      }
+
+      admin.status = false;
+      await admin.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Admin suspended successfully!",
+        admin: admin,
+      });
+    } catch (error) {
+      return res.status(500).json(error.message);
+    }
+})
+
+const activateAdmin = asyncHandler(async (req, res) => {
+  try {
+      const admin = await Admin.findById(req.params.id);
+
+      if (!Admin) {
+        return res.status(404).json({ message: "Admin not found" });
+      }
+
+      admin.status = true;
+      await admin.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Admin activated successfully!",
+        admin: admin,
+      });
+    } catch (error) {
+      return res.status(500).json(error.message);
+    }
+})
+
 // @desc Delete a user
 // @route DELETE /users
 // @access Private
@@ -220,5 +262,7 @@ module.exports = {
     deleteAdmin,
     loginAdmin,
     getAdminById, 
-    changePassword
+    changePassword,
+    deactivateAdmin,
+    activateAdmin,
 }

@@ -15,7 +15,7 @@ router.post('/admin-create-reseller', resellersController.adminCreateReseller);
 router.post('/login', resellersController.loginReseller);
 router.get('/logout', resellersController.logOutReseller);
 router.patch('/edit-account', resellersController.updateReseller);
-router.delete('/delete-reseller', resellersController.deleteReseller);
+router.delete('/delete-reseller/:id', resellersController.deleteReseller);
 router.get('/unapproved-resellers', resellersController.getNotApprovedResellers);
 router.patch('/approve-reseller/:id', resellersController.approveReseller);
 router.patch('/hold-reseller/:id', resellersController.holdReseller);
@@ -25,5 +25,6 @@ router.delete('/delete-reseller/:id', resellersController.deleteReseller);
 router.post('/forgot-password', resellersController.forgotPassword);
 router.get('/reset-password/:id/:token', resellersController.resetPassword);
 router.post('/reset-password/:id/:token', resellersController.resetPasswordComplete);
+router.put('/change-password/:id', resellersController.changePassword);
 
 module.exports = router;

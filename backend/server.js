@@ -49,6 +49,7 @@ app.use('/auth', require('./routes/authRoutes'))
 app.use('/products', require('./routes/productRoutes'))
 app.use('/suppliers', require('./routes/supplierRoutes'))
 app.use('/ads', require('./routes/adRoutes'))
+app.use('/search', require('./routes/searchRoutes'))
 
 app.all('*', (req, res) => {
     res.status(404)

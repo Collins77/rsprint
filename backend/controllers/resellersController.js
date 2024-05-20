@@ -219,19 +219,19 @@ const loginReseller = asyncHandler(async (req, res) => {
       if (!reseller) {
         return res.status(400).send({
           success: false,
-          message: "Email is not registerd",
+          message: "Email is not registered",
         });
       }
 
       if (reseller.status !== "Approved") {
-          return res.status(401).json({ message: 'Your account is pending approval. You are not allowed to sign in!' });
+          return res.status(401).json({ message: 'Your account is pending approval. Please contact Admin!' });
       }
       const match = await bcrypt.compare(password, reseller.password)
       
       if (!match) {
         return res.status(400).send({
           success: false,
-          message: "Invalid Password",
+          message: "Invalid Credentials",
         });
       }
       //token
@@ -324,7 +324,54 @@ const logOutReseller = asyncHandler(async (req, res) => {
       } catch (error) {
         return res.status(500).json(error.message);
       }
-})
+});
+
+const changePassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword, confirmPassword } = req.body;
+  const { id } = req.params;
+
+  try {
+    // Find the admin by ID
+    const reseller = await Reseller.findById(id).select("+password");;
+
+    // Check if admin exists
+    if (!reseller) {
+      return res.status(404).json({ message: 'Reseller not found' });
+    }
+
+    console.log('Reseller password:', reseller.password);
+
+    // Compare old password with the hashed password in the database
+    const isMatch = await bcrypt.compare(oldPassword, reseller.password);
+
+    // Log the result of the comparison
+    console.log('Password comparison result:', isMatch);
+
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid old password' });
+    }
+
+    // Validate new password
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: 'New password and confirm password do not match' });
+    }
+
+    // Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+
+    // Update user's password with the new hashed password
+    reseller.password = hashedPassword;
+    await reseller.save();
+
+    // Password changed successfully
+    return res.status(200).json({ message: 'Password updated successfully' });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
 
 
 const updateReseller = asyncHandler(async (req, res) => {
@@ -462,22 +509,18 @@ const rejectReseller = asyncHandler(async (req, res) => {
 // @route DELETE /resellers
 // @access Private
 const deleteReseller = asyncHandler(async (req, res) => {
-    const { id } = req.body;
-    if(!id) {
-        return res.status(400).json({ message: "Reseller ID Required!" })
-    }
+  const reseller = await Reseller.findById(req.params.id);
+  
+  if (!reseller) {
+    return res.status(404).json({message: 'Reseller is not found'});
+  }
 
-    const reseller = await Reseller.findById(id).exec()
-    
-    if(!reseller) {
-        return res.status(400).json({ message: 'Reseller not found' })
-    }
+  await reseller.deleteOne()
 
-    const result = await reseller.deleteOne()
-
-    const reply = `Reseller ${reseller.firstName} with ID ${reseller._id} deleted.`
-
-    res.json(reply)
+  res.status(201).json({
+    success: true,
+    message: "Reseller Deleted successfully!",
+  });
 })
 
 const forgotPassword = asyncHandler(async (req, res) => {
@@ -491,7 +534,8 @@ const forgotPassword = asyncHandler(async (req, res) => {
     const token = jwt.sign({ email: oldUser.email, id: oldUser._id }, process.env.ACCESS_TOKEN_SECRET, {
       expiresIn: "20m",
     });
-    const link = `https://resprint.api.resellers/resellers/reset-password/${oldUser._id}/${token}`;
+    const link = `https://resprint.api.resellersprint.com/resellers/reset-password/${oldUser._id}/${token}`;
+    // const link = `http://localhost:3500/resellers/reset-password/${oldUser._id}/${token}`;
     const emailTemplatePath = path.join(__dirname, '..', 'views', 'forgotPassword.html');
     const emailTemplate = fs.readFileSync(emailTemplatePath, 'utf8');
 
@@ -506,6 +550,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
         subject: "Password Reset",
         html: formattedTemplate,
     });
+    return res.status(200).json({ message: 'Check your email' })
   } catch (error) {
     
   }
@@ -526,26 +571,31 @@ const resetPassword = asyncHandler(async (req, res) => {
 
 })
 const resetPasswordComplete = asyncHandler(async (req, res) => {
-  const {id, token} = req.params;
-  const {password} = req.body;
+  const { id, token } = req.params;
+  const { password } = req.body;
 
-  const oldReseller = await Reseller.findOne({_id: id})
-  if(!oldReseller) {
-    return res.status(400).json({ message: "Reseller does not exist" });
-  }
   try {
+    // Verify the JWT token
     const verify = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+
+    // Hash the new password
     const encryptedPassword = await bcrypt.hash(password, 10);
-    await Reseller.updateOne({
-      id:id
-    }, {
-      $set: {
-        password: encryptedPassword,
-      },
-    });
-    res.render("forgot", {email: verify.email, status: "verified"})
+
+    // Update the password for the Reseller document
+    const updatedReseller = await Reseller.findByIdAndUpdate(
+      id,
+      { password: encryptedPassword },
+      { new: true } // To return the updated document
+    );
+
+    if (!updatedReseller) {
+      return res.status(400).json({ message: "Reseller does not exist" });
+    }
+
+    // Password successfully updated, render a response
+    res.render("forgot", { email: verify.email, status: "verified" });
   } catch (error) {
-    res.json({status: "Something went wrong"})
+    res.status(500).json({ message: "Something went wrong" });
   }
 
 })
@@ -567,5 +617,6 @@ module.exports = {
     rejectReseller,
     getResellerById,
     holdReseller,
-    adminCreateReseller
+    adminCreateReseller,
+    changePassword
 }

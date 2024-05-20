@@ -36,58 +36,67 @@ const getAllTerms = asyncHandler(async (req, res) => {
 })
 
 const updateTerm = asyncHandler(async (req, res) => {
-    const { id,  name, description, status} = req.body;
+    const id = req.params.id;
+    const {  name, description, status } = req.body;
 
-    // confirm data
-    if(!id || !name || !description || typeof status !== 'boolean') {
-        return res.status(400).json({ message: 'All fields are required' })
+    try {
+      const term = await Term.findById(id);
+
+      if (!term) {
+        return next(new ErrorHandler('Term not found', 404));
+      }
+
+        term.name = title
+        term.description = description
+        term.status = status
+
+      await term.save();
+
+      res.status(200).json({
+        success: true,
+        message: 'Term updated successfully!',
+        term,
+      });
+    } catch (error) {
+      return res.status(400).json(error.message);
     }
 
-    const term = await Term.findById(id).exec()
-
-    if(!term) {
-        return res.status(400).json({ message: 'T&C not found' })
-    }
-
-    // check for duplicate
-    // const duplicate = await Category.findOne({ name }).lean().exec()
-
-    // // Allow updates to the original user
-    // if(duplicate && duplicate?._id.toString() !== id) {
-    //     return res.status(409).json({ message: 'Duplicate category name' })
-    // }
-
-    term.name = title
-    term.description = description
-    term.status = status
-
-    const updatedTerm = await term.save();
-
-    res.json({ message: `T&C updated` })
 })
 
 const deleteTerm = asyncHandler(async (req, res) => {
-    const { id } = req.body;
-    if(!id) {
-        return res.status(400).json({ message: "T&C ID Required!" })
-    }
+    const term = await Term.findById(req.params.id);
+  
+        if (!term) {
+          return res.status(404).json({message: 'Term is not found'});
+        }
+      
+        await term.deleteOne()
+  
+        res.status(201).json({
+          success: true,
+          message: "Term Deleted successfully!",
+        });
+})
 
-    const term = await Term.findById(id).exec()
-    
-    if(!term) {
-        return res.status(400).json({ message: 'T&C not found' })
-    }
-
-    const result = await term.deleteOne()
-
-    const reply = `T&C deleted.`
-
-    res.json(reply)
+const getTermById = asyncHandler(async (req, res) => {
+    try {
+        const term = await Term.findById(req.params.id);
+        if(!term) {
+            return res.status(404).json({ message: 'Term not found!' });
+        }
+      res.status(201).json({
+        success: true,
+        term,
+      });
+      } catch (error) {
+        return res.status(500).json(error.message);
+      }
 })
 
 module.exports = {
     getAllTerms, 
     createNewTerm, 
     updateTerm,
-    deleteTerm
+    deleteTerm,
+    getTermById
 }

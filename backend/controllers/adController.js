@@ -10,7 +10,7 @@ const createNewAd = asyncHandler(async (req, res) => {
         if (!supplier) {
           return res.status(400).json({ message: 'Supplier ID is invalid!' });
         } else {
-          const {title,description,startDate,endDate, status, isActive} = req.body
+          const {title,description,productName, initialPrice, newPrice, startDate,endDate, status, isActive} = req.body
 
           if(!title || !description || !startDate || !endDate || !description) {
             return res.status(400).json({message: 'All fields are required!'})
@@ -20,6 +20,9 @@ const createNewAd = asyncHandler(async (req, res) => {
             supplier: supplierId,
             title,
             description,
+            productName,
+            initialPrice,
+            newPrice,
             startDate,
             endDate,
             status,
@@ -36,6 +39,44 @@ const createNewAd = asyncHandler(async (req, res) => {
       }
 });
 
+const adminCreateAd = asyncHandler(async (req, res) => {
+  try {
+      const supplierId = req.body.supplierId; // Assuming the supplier ID is provided in the request body
+      const supplier = await Supplier.findById(supplierId);
+      
+      if (!supplier) {
+        return res.status(400).json({ message: 'Supplier ID is invalid!' });
+      } else {
+        const {title,description,productName, initialPrice, newPrice, startDate,endDate, status, isActive} = req.body
+
+        if(!title || !description || !productName || !initialPrice || !newPrice || !startDate || !endDate) {
+          return res.status(400).json({message: 'All fields are required!'})
+          }
+
+        const ad = await Ad.create({
+            supplier: supplierId,
+            title,
+            description,
+            productName,
+            initialPrice,
+            newPrice,
+            startDate,
+            endDate,
+            status,
+            isActive: true
+        });
+
+        res.status(201).json({
+          success: true,
+          ad,
+        });
+      }
+    } catch (error) {
+      return res.status(400).json(error.message);
+    }
+  
+})
+
 const getAllAds = asyncHandler(async (req, res) => {
     const ads = await Ad.find().lean()
     if(!ads?.length) {
@@ -46,7 +87,7 @@ const getAllAds = asyncHandler(async (req, res) => {
 
 const updateAd = asyncHandler(async (req, res) => {
     const id = req.params.id;
-    const { title,description,startDate,endDate, status, isActive } = req.body;
+    const { title,description,productName, initialPrice, newPrice,startDate,endDate, status, isActive } = req.body;
 
     try {
       const ad = await Ad.findById(id);
@@ -55,11 +96,14 @@ const updateAd = asyncHandler(async (req, res) => {
         return next(new ErrorHandler('Ad not found', 404));
       }
 
-      ad.title = title || product.title;
-      ad.description = description || product.description;
-      ad.startDate = startDate || product.startDate;
-      ad.endDate = endDate|| product.endDate;
-      ad.status = status || product.status;
+      ad.title = title || ad.title;
+      ad.description = description || ad.description;
+      ad.productName = productName || ad.productName;
+      ad.initialPrice= initialPrice || ad.initialPrice;
+      ad.newPrice = newPrice || ad.newPrice;
+      ad.startDate = startDate || ad.startDate;
+      ad.endDate = endDate|| ad.endDate;
+      ad.status = status || ad.status;
       ad.isActive = isActive !== undefined ? isActive : ad.isActive;
 
       await ad.save();
@@ -84,29 +128,42 @@ const getAdsBySupplier = asyncHandler(async (req, res) => {
     }
 })
 
-const deleteBrand = asyncHandler(async (req, res) => {
-    const { id } = req.body;
-    if(!id) {
-        return res.status(400).json({ message: "Brand ID Required!" })
-    }
+const getAdById = asyncHandler(async (req, res) => {
+    try {
+        const ad = await Ad.findById(req.params.id);
+        if(!ad) {
+            return res.status(404).json({ message: 'Ad not found!' });
+        }
+      res.status(201).json({
+        success: true,
+        ad,
+      });
+      } catch (error) {
+        return res.status(500).json(error.message);
+      }
+})
 
-    const brand = await Brand.findById(id).exec()
-    
-    if(!brand) {
-        return res.status(400).json({ message: 'Brand not found' })
-    }
-
-    const result = await brand.deleteOne()
-
-    const reply = `Brand ${result.name} deleted.`
-
-    res.json(reply)
+const deleteAd = asyncHandler(async (req, res) => {
+    const ad = await Ad.findById(req.params.id);
+  
+        if (!ad) {
+          return res.status(404).json({message: 'Ad is not found'});
+        }
+      
+        await ad.deleteOne()
+  
+        res.status(201).json({
+          success: true,
+          message: "Ad Deleted successfully!",
+        });
 })
 
 module.exports = {
     getAllAds, 
     createNewAd, 
     updateAd,
-    getAdsBySupplier
-    // deleteBrand
+    getAdById,
+    getAdsBySupplier,
+    deleteAd,
+    adminCreateAd
 }

@@ -21,7 +21,7 @@ const createNewInfo = asyncHandler(async (req, res) => {
         companyInfo.city= city;
         companyInfo.address= address;
         companyInfo.phone= phone;
-        companyInfo.country= email;
+        companyInfo.email= email;
         
       }
 

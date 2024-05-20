@@ -14,6 +14,18 @@ const adSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    productName: {
+        type: String,
+        required: true
+    },
+    initialPrice: {
+        type: Number,
+        required: true
+    },
+    newPrice: {
+        type: Number,
+        required: true
+    },
     startDate: {
         type: Date,
         required: true

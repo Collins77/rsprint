@@ -36,58 +36,66 @@ const getAllFAQs = asyncHandler(async (req, res) => {
 })
 
 const updateFAQ = asyncHandler(async (req, res) => {
-    const { id, title, description, status} = req.body;
+    const id = req.params.id;
+    const {  title, description, status } = req.body;
 
-    // confirm data
-    if(!id || !title || !description || typeof status !== 'boolean') {
-        return res.status(400).json({ message: 'All fields are required' })
+    try {
+      const faq = await FAQ.findById(id);
+
+      if (!faq) {
+        return next(new ErrorHandler('FAQ not found', 404));
+      }
+
+      faq.title = title || faq.title;
+      faq.description = description || faq.description;
+      faq.status = status || faq.productName;
+
+      await faq.save();
+
+      res.status(200).json({
+        success: true,
+        message: 'FAQ updated successfully!',
+        faq,
+      });
+    } catch (error) {
+      return res.status(400).json(error.message);
     }
-
-    const faq = await FAQ.findById(id).exec()
-
-    if(!faq) {
-        return res.status(400).json({ message: 'FAQ not found' })
-    }
-
-    // check for duplicate
-    // const duplicate = await Category.findOne({ name }).lean().exec()
-
-    // // Allow updates to the original user
-    // if(duplicate && duplicate?._id.toString() !== id) {
-    //     return res.status(409).json({ message: 'Duplicate category name' })
-    // }
-
-    faq.title = title
-    faq.description = description
-    faq.status = status
-
-    const updatedFAQ = await faq.save();
-
-    res.json({ message: `FAQ updated` })
 })
 
 const deleteFAQ = asyncHandler(async (req, res) => {
-    const { id } = req.body;
-    if(!id) {
-        return res.status(400).json({ message: "FAQ ID Required!" })
-    }
+    const faq = await FAQ.findById(req.params.id);
+  
+        if (!faq) {
+          return res.status(404).json({message: 'FAQ is not found'});
+        }
+      
+        await faq.deleteOne()
+  
+        res.status(201).json({
+          success: true,
+          message: "FAQ Deleted successfully!",
+        });
+})
 
-    const faq = await FAQ.findById(id).exec()
-    
-    if(!faq) {
-        return res.status(400).json({ message: 'FAQ not found' })
-    }
-
-    const result = await faq.deleteOne()
-
-    const reply = `FAQ deleted.`
-
-    res.json(reply)
+const getFAQById = asyncHandler(async (req, res) => {
+    try {
+        const faq = await FAQ.findById(req.params.id);
+        if(!faq) {
+            return res.status(404).json({ message: 'FAQ not found!' });
+        }
+      res.status(201).json({
+        success: true,
+        faq,
+      });
+      } catch (error) {
+        return res.status(500).json(error.message);
+      }
 })
 
 module.exports = {
     getAllFAQs, 
     createNewFAQ, 
     updateFAQ,
-    deleteFAQ
+    deleteFAQ,
+    getFAQById
 }

@@ -39,7 +39,8 @@ const productSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: ["available", "limited", "unavailable"],
-        required: [true, "Please enter your product availability"],
+        // required: [true, "Please enter your product availability"],
+        default: "available"
     },
     isFeatured: {
         type: Boolean,

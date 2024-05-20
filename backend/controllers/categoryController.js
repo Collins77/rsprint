@@ -36,49 +36,57 @@ const getAllCategories = asyncHandler(async (req, res) => {
     res.json(categories)
 })
 
+const getCategory = asyncHandler(async (req, res) => {
+    try {
+        const category = await Category.findById(req.params.id);
+        if(!category) {
+            return res.status(404).json({ message: 'Category not found!' });
+        }
+      res.status(201).json({
+        success: true,
+        category,
+      });
+      } catch (error) {
+        return res.status(500).json(error.message);
+      }
+})
+
 const updateCategory = asyncHandler(async (req, res) => {
-    const { id, name, status,} = req.body;
+    const id = req.params.id;
+    const { name, status } = req.body;
 
-    // confirm data
-    if(!id || !name || typeof status !== 'boolean') {
-        return res.status(400).json({ message: 'All fields are required' })
+    try {
+      const category = await Category.findById(id);
+
+      if (!category) {
+        return next(new ErrorHandler('Category not found', 404));
+      }
+
+      const duplicate = await Category.findOne({ name }).lean().exec()
+
+        // Allow updates to the original user
+        if(duplicate && duplicate?._id.toString() !== id) {
+            return res.status(409).json({ message: 'Duplicate category name' })
+        }
+
+      category.name = name || category.name;
+      category.status = status || category.status;
+
+      await category.save();
+
+      res.status(200).json({
+        success: true,
+        message: 'Category updated successfully!',
+        category,
+      });
+    } catch (error) {
+      return res.status(400).json(error.message);
     }
-
-    const category = await Category.findById(id).exec()
-
-    if(!category) {
-        return res.status(400).json({ message: 'Category not found' })
-    }
-
-    // check for duplicate
-    // const duplicate = await Category.findOne({ name }).lean().exec()
-
-    // // Allow updates to the original user
-    // if(duplicate && duplicate?._id.toString() !== id) {
-    //     return res.status(409).json({ message: 'Duplicate category name' })
-    // }
-
-    category.name = name
-    category.status = status
-
-    const updatedCategory = await category.save();
-
-    res.json({ message: `${updatedCategory.name} updated` })
 })
 
 const deleteCategory = asyncHandler(async (req, res) => {
-    const { id } = req.body;
-    if(!id) {
-        return res.status(400).json({ message: "Category ID Required!" })
-    }
-    const product = await Product.findOne({ category: id }).lean().exec()
+    const category = await Category.findById(req.params.id);
 
-    if(product) {
-        return res.status(400).json({ message: "Category has products" })
-    }
-
-    const category = await Category.findById(id).exec()
-    
     if(!category) {
         return res.status(400).json({ message: 'Category not found' })
     }
@@ -88,11 +96,13 @@ const deleteCategory = asyncHandler(async (req, res) => {
     const reply = `Category ${category.name} with ID ${category._id} deleted.`
 
     res.json(reply)
+
 })
 
 module.exports = {
     getAllCategories, 
     createNewCategory, 
     updateCategory,
-    deleteCategory
+    deleteCategory,
+    getCategory
 }
