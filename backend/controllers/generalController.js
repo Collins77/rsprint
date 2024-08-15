@@ -3,30 +3,6 @@ const multer = require('multer');
 const asyncHandler = require('express-async-handler');
 const path = require('path');
 
-// const imageStorage = multer.diskStorage({
-//     // Destination to store image     
-//     destination: 'images', 
-//       filename: (req, file, cb) => {
-//           cb(null, file.fieldname + '_' + Date.now() 
-//              + path.extname(file.originalname))
-//             // file.fieldname is name of the field (image)
-//             // path.extname get the uploaded file extension
-//     }
-// });
-
-// const imageUpload = multer({
-//     storage: imageStorage,
-//     limits: {
-//       fileSize: 10000000 // 1000000 Bytes = 1 MB
-//     },
-//     fileFilter(req, file, cb) {
-//       if (!file.originalname.match(/\.(png|jpg)$/)) { 
-//          // upload only png and jpg format
-//          return cb(new Error('Please upload a Image'))
-//        }
-//      cb(undefined, true)
-//   }
-// })
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'images/');
@@ -37,55 +13,6 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage });
-
-
-// Create or update general settings with images
-// const createNewGeneralSettings = asyncHandler(async (req, res) => {
-//   try {
-//     // Upload logo and icon images
-//     upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'icon', maxCount: 1 }, { name: 'backgroundImage', maxCount: 1 }])(req, res, async function(err) {
-//       if (err) {
-//         return res.status(400).json({ message: 'Error uploading images', error: err.message });
-//       }
-      
-//       const { siteTitle, heroTitle, heroSubTitle } = req.body;
-
-//       // Check if there's an existing general settings document
-//       let generalSettings = await General.findOne();
-
-//       // If no document exists, create a new one
-//       if (!generalSettings) {
-//         generalSettings = new General({ siteTitle, heroTitle, heroSubTitle });
-//       } else {
-//         // Update existing document with new values
-//         generalSettings.siteTitle = siteTitle;
-//         generalSettings.heroTitle = heroTitle;
-//         generalSettings.heroSubTitle = heroSubTitle;
-//       }
-
-//       // Check if logo image is uploaded
-//       if (req.files && req.files['logo']) {
-//         generalSettings.logo = req.files['logo'][0];
-//       }
-
-//       // Check if icon image is uploaded
-//       if (req.files && req.files['icon']) {
-//         generalSettings.icon = req.files['icon'][0];
-//       }
-
-//       if (req.files && req.files['backgroundImage']) {
-//         generalSettings.backgroundImage = req.files['backgroundImage'][0];
-//       }
-
-//       // Save general settings to the database
-//       await generalSettings.save();
-
-//       res.status(201).json({ message: 'General settings created/updated successfully', data: generalSettings });
-//     });
-//   } catch (error) {
-//     res.status(500).json({ message: 'Error creating/updating general settings', error: error.message });
-//   }
-// });
 
 const createNewGeneralSettings = asyncHandler(async (req, res) => {
   upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'icon', maxCount: 1 }, { name: 'backgroundImage', maxCount: 1 }])(req, res, async function(err) {

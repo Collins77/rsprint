@@ -139,67 +139,6 @@ const adminCreateReseller = asyncHandler(async (req, res) => {
     }
   });
 
-// const loginReseller = asyncHandler(async (req, res) => {
-//     try {
-//         const { email, password } = req.body;
-  
-//         if (!email || !password) {
-//             return res.status(400).json({message: 'All fields are required!'})
-//         }
-  
-//         const reseller = await Reseller.findOne({ email }).select("+password");
-  
-//         if (!reseller) {
-//             return res.status(400).json({message: 'Reseller does not exist!'})
-//         }
-  
-//         if (reseller.status !== "Approved") {
-//         //   return next(new ErrorHandler("Your account is pending approval. You are not allowed to sign in.!", 401));
-//           return res.status(401).json({message: 'Your account is pending approval. You are not allowed to sign in!'})
-
-//         }
-  
-//         const isPasswordValid = await reseller.comparePassword(password);
-  
-//         if (!isPasswordValid) {
-//             return res.status(400).json({message: 'Invalid details. Try again!'})
-
-//         }
-//         // sendToken(user, 201, res);
-//         const accessToken = jwt.sign(
-//             {
-//                 "ResellerInfo": {
-//                     "firstName": reseller.firstName,
-//                     "roles": reseller.roles
-//                 }
-//             },
-//             process.env.ACCESS_TOKEN_SECRET,
-//             { expiresIn: '15m' }
-//         )
-    
-//         const refreshToken = jwt.sign(
-//             { "firstName": reseller.firstName },
-//             process.env.REFRESH_TOKEN_SECRET,
-//             { expiresIn: '7d' }
-//         )
-    
-//         // Create secure cookie with refresh token 
-//         res.cookie('jwt', refreshToken, {
-//             httpOnly: true, //accessible only by web server 
-//             secure: true, //https
-//             sameSite: 'None', //cross-site cookie 
-//             maxAge: 7 * 24 * 60 * 60 * 1000 //cookie expiry: set to match rT
-//         })
-    
-//         // Send accessToken containing username and roles 
-//         res.json({ accessToken })
-//       } catch (error) {
-//         // return next(new ErrorHandler(error.message, 500));
-//         return res.status(500).json({message: "An error occurred while sending"})
-
-//       }
-// })
-
 // @desc update a reseller
 // @route PATCH /resellers
 // @access Private

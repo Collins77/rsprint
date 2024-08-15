@@ -172,7 +172,7 @@ const updateProduct = asyncHandler(async (req, res) => {
 
 // Download CSV template for bulk product upload
 const downloadTemplate = asyncHandler(async (req, res) => {
-  const templateFields = ['sku', 'name', 'category', 'price($)', 'brand', 'description', 'warranty(Months)'];
+  const templateFields = ['sku', 'name', 'category', 'price', 'brand', 'description', 'warranty'];
   const csvString = templateFields.join(',') + '\n';
   res.setHeader('Content-disposition', 'attachment; filename=product_template.csv');
   res.set('Content-Type', 'text/csv');
